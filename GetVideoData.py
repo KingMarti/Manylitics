@@ -1,8 +1,7 @@
 ###################################################################################
-#               Enter Login Detials Below in the quotations                       #
+#               Enter Your User Decryption Key Entered During Setup               #
 ###################################################################################
-username=''
-passwd=''
+decryption_key='Enter Decryption Key Here'
 ###################################################################################
 #             If you have 2fa on your account leave the below as y                #
 #               If not using 2fa change the 'y' to 'n'                            #
@@ -10,14 +9,15 @@ passwd=''
 
 tfa_check='y'
 
-###################################################################################
-#              Enter your 2fa authenication key Below inside the quotations       #
-#               NOTE: This code is used to generate the 2fa key                   #
-#               Anyone with access to your system can generate a new 2fa code     #
-#                   Do not run this script on a shared computer!                  #
-###################################################################################
+##################################################################################
+#                   Enter Github Token Below If Using Windows                    #
+##################################################################################
 
-tfa=''
+import os
+import sys
+if sys.platform == 'win32':
+    os.environ['GH_TOKEN']='ENTER GITHUB TOKEN HERE'
+
 
 ###################################################################################
 #                   The Blow detemins if a browser window will open               #
@@ -28,16 +28,14 @@ tfa=''
 ###################################################################################
 
 hide_browser=True
-###################################################################################
-#               Enter The Path To The FireFox Geko Driver in the Quotes           #
-###################################################################################
 
-geko=''
 ###################################################################################
 #               Editing Below This Point May Break The Script                     #
 ###################################################################################
+from tkinter import E
 import pyotp
 from selenium import webdriver
+from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -49,12 +47,46 @@ import requests
 import sqlite3
 from sqlite3 import Error
 import time
+import cryptocode
 headOption = webdriver.FirefoxOptions()
 headOption.headless=hide_browser
+run_count=1
+def get_user():
+    decrypted=[]
+    data=[]
+    try:
+        conn =sqlite3.connect('users.db')
+        print(sqlite3.version)
+        c = conn.cursor()
+    except Error as e:
+        print(e)
+    try:
+        c.execute("SELECT * FROM User where id="+str(run_count))
+        rows = c.fetchall()
+        conn.close()
+    except conn.Error as e:
+        print(e)
+    for row in rows:
+        print('number os rows is: ',len(rows))
+        for r in row:
+            data.append(r)
+    print('data records is: ',len(data))
+    time.sleep(30)
+    global username
+    username=cryptocode.decrypt(data[1],decryption_key)
+    global passwd
+    passwd=cryptocode.decrypt(data[2],decryption_key)
+    global tfa_key
+    tfa_key=cryptocode.decrypt(data[3],decryption_key)
+    print('Username is:',username,' password is: ',passwd,' tfa is:',tfa_key)
+
 def create_connection():
     conn = None
+    global db_name
+    db_name=username+'_vid_analytics.db'
     try:
-        conn =sqlite3.connect('vid_analytics.db')
+        print('trying to open manylitics db')
+        conn =sqlite3.connect(db_name)
         print(sqlite3.version)
         c = conn.cursor()
         return conn,c
@@ -64,7 +96,7 @@ def create_connection():
         if conn:
             conn.close()
 def get_video_data():
-    bot = webdriver.Firefox(options=headOption,executable_path=geko,service_log_path="geckodriver.log")
+    bot = webdriver.Firefox(options=headOption,executable_path=GeckoDriverManager().install())
     site_name="Manyvids"
     url=bot.get('https://www.manyvids.com/Login/')    
     time.sleep(3)
@@ -79,13 +111,13 @@ def get_video_data():
     password.send_keys(Keys.RETURN)
     if tfa_check == 'y':
         time.sleep(4)
-        totp = pyotp.TOTP(tfa)
+        totp = pyotp.TOTP(tfa_key)
         bot.find_element_by_xpath('//*[@id="LoginSignupModal"]/div[5]/form/div[1]/input').send_keys(totp.now())
         bot.find_element_by_xpath('//*[@id="LoginSignupModal"]/div[5]/form/div[2]/a[2]').click()
     time.sleep(10)
     url='https://www.manyvids.com/MV-Content-Manager/'
     bot.get(url)
-    time.sleep(30)
+    time.sleep(3)
     try:
         if bot.find_element(By.CLASS_NAME,value='js-cancel-announcement'):
             bot.find_element(By.CLASS_NAME,value='js-cancel-announcement').click()
@@ -137,7 +169,7 @@ def get_video_data():
             print('error')
             break
     try:
-        conn =sqlite3.connect('vid_analytics.db')
+        conn =sqlite3.connect(db_name)
         #print(sqlite3.version)
         c = conn.cursor()
     except conn.Error as e:
@@ -178,6 +210,26 @@ def get_video_data():
         except:
             print('Could not add data to database')
         b+=1
+def get_user_count():
+    try:
+        conn =sqlite3.connect('users.db')
+        print(sqlite3.version)
+        c = conn.cursor()
+    except Error as e:
+        print(e)
+    try:
+        c.execute("SELECT * FROM User;")
+        rows = c.fetchall()
+        conn.close()
+    except conn.Error as e:
+        print(e)
+    global user_count
+    user_count=len(rows)
+    print('user count is',user_count)
 if __name__=='__main__':
-    create_connection()
-    get_video_data()
+    get_user_count()
+    while run_count < user_count+1:
+        get_user()
+        create_connection()
+        get_video_data()
+        run_count+=1

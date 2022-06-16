@@ -4,9 +4,13 @@ from sqlite3 import Error
 import time
 from operator import itemgetter
 def get_connection():
+    username=input('What is the username for the account you would like to get data for?\n')
+    username=username.lower()
+    global db_name
+    db_name='vid_analytics.db'
     conn = None
     try:
-        conn =sqlite3.connect('vid_analytics.db')
+        conn =sqlite3.connect(db_name)
         print(sqlite3.version)
         c = conn.cursor()
         return conn,c
@@ -19,7 +23,7 @@ def get_data():
     day_select=input("How many days worth of data would you like to fetch? ")
     day_select=str(int(day_select)+1)
     output=[]
-    conn =sqlite3.connect('vid_analytics.db')
+    conn =sqlite3.connect(db_name)
     c = conn.cursor()
     c.execute("SELECT name FROM sqlite_master WHERE type='table';")
     rows = c.fetchall()
